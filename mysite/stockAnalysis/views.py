@@ -32,17 +32,49 @@ highest = 0
 lowest = 0
 rsiPrice = 0
 
+def index(request):
+    if request.method == 'POST':
+        form = NameForm(request.POST)
+        if form.is_valid():
+            global result
+            result = form.cleaned_data['stockNum']
+            getStockInfo (result)
+            #getRSI (result)
+            return render(request, 'stockAnalysis/basic.html', {'price': [result, highest, lowest]})
+    else:
+        form = NameForm()
+    return render(request, 'stockAnalysis/home.html', {'form': form})
+
+def getStockInfo (num): 
+    global highest 
+    global lowest 
+    df = quandl.get("HKEX/"+num, returns="numpy", rows=30, authtoken=API)
+    priceHigh = df['High']
+    priceLow = df['Low']
+    nominal = df['Nominal Price']
+    rsiPrice = df['Previous Close']
+    #calMax(df)
+    calMin(df)
+    highest = 0
+    lowest = min(priceLow)
+    
 
 def calMin(obj):
     minPrices = numpy.array(obj['Low'])
     minPrices = 1./minPrices
     indexes = peakutils.indexes(minPrices, thres=0.02/max(minPrices), min_dist=1) #you can fine tune the thres to smaller value to get even shorter period
-    print("max/min: ", indexes)
-    x = indexes.size
-    print("x: ",x)
-    for y in range(indexes.size):
-        print("prices:", obj[indexes[y-1]]['Low'])
-        print("prices: ", obj[indexes[y-1]])
+    print("min: ", indexes)
+
+    for i in range (0, indexes.size):
+        print("print i: ",i)
+        print("lowest: ", obj[indexes[i]]['Date'])
+        print("lowest price: ", obj[indexes[i]]['Low'])
+        for j in range (i + 1, indexes.size):
+            if obj[indexes[i]]['Low'] == obj[indexes[j]]['Low']:
+                print("indexes[i] ", obj[indexes[i]]['Low'])
+
+        
+
 
 def calMax(obj):
     maxPrices = numpy.array(obj['High'])
@@ -68,32 +100,7 @@ forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
 
-def index(request):
-    if request.method == 'POST':
-        form = NameForm(request.POST)
-        if form.is_valid():
-            global result
-            result = form.cleaned_data['stockNum']
-            getStockInfo (result)
-            #getRSI (result)
-            return render(request, 'stockAnalysis/basic.html', {'price': [result, highest, lowest]})
-    else:
-        form = NameForm()
-    return render(request, 'stockAnalysis/home.html', {'form': form})
 
-def getStockInfo (num): 
-    global highest 
-    global lowest 
-    df = quandl.get("HKEX/"+num, returns="numpy", rows=30, authtoken=API)
-    priceHigh = df['High']
-    priceLow = df['Low']
-    nominal = df['Nominal Price']
-    rsiPrice = df['Previous Close']
-    calMax(df)
-    #calMin(df)
-    highest = 0
-    lowest = min(priceLow)
-    
 
 def getRSI (num):
     df = quandl.get("HKEX/"+num, rows=720, authtoken=API)
@@ -102,34 +109,6 @@ def getRSI (num):
 
 def doubleTopBottom(request):
     return render(request, 'stockAnalysis/basic.html',{'origin':[result, highest, lowest]})
-
-def graphic(request):
-    import random
-    import django
-    import datetime
-    
-    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-    from matplotlib.figure import Figure
-    from matplotlib.dates import DateFormatter
-
-    fig=Figure()
-    ax=fig.add_subplot(111)
-    x=[]
-    y=[]
-    now=datetime.datetime.now()
-    delta=datetime.timedelta(days=1)
-    for i in range(10):
-        x.append(now)
-        now+=delta
-        y.append(random.randint(0, 1000))
-    ax.plot_date(x, y, '-')
-    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-    fig.autofmt_xdate()
-    canvas=FigureCanvas(fig)
-    graphic=django.http.HttpResponse(content_type='image/png')
-    
-    canvas.print_png(graphic)
-    return graphic
 
 
 
