@@ -36,9 +36,21 @@ lowest = 0
 rsiPrice = 0
 spread_price = 0
 
-df = quandl.get("HKEX/"+"00939", returns="numpy", rows=30, authtoken=API)
-test = 'Low'
-print("testing: ", df[test])
+df = quandl.get("HKEX/"+"01398", start_date="2017-08-20", end_date="2018-03-01", authtoken=API)
+dfReset = df.reset_index()
+dfRename = pd.DataFrame(dfReset, columns=['Date', 'High'])
+dfRename = dfRename.dropna(how='any')
+
+dfRename = dfRename.to_records(index=False)
+print("df: ", dfRename['High'])
+
+df2 = quandl.get("HKEX/"+"01398", returns="numpy", start_date="2017-08-20", end_date="2018-03-01", authtoken=API)
+#print("df2: ", df2)
+#maxPrices = numpy.array(dfRename['High'])
+#print("maxPrice: ", maxPrices)
+#indexes = peakutils.indexes(maxPrices, thres=0.02/max(maxPrices), min_dist=1) #you can fine tune the thres to smaller value to get even shorter period
+#print("max/min: ", indexes)
+
 
 def index(request):
     if request.method == 'POST':
@@ -56,9 +68,11 @@ def index(request):
 def getStockInfo (num): 
     global highest 
     global lowest 
-    df = quandl.get("HKEX/"+num, returns="numpy", rows=50, authtoken=API)
+    df = quandl.get("HKEX/"+num, returns="numpy", start_date="2017-08-20", end_date="2018-03-01", authtoken=API)
+    df = df[~numpy.isnan(df)]
     priceHigh = df['High']
     priceLow = df['Low']
+    print("priceLow: ",priceLow)
     nominal = df['Nominal Price']
     rsiPrice = df['Previous Close']
     global spread_price
@@ -82,11 +96,13 @@ def calMax(obj):
 
 def calMin(obj):
     minPrices = numpy.array(obj['Low'])
+    print("minPrices: ",minPrices)
     minPrices = 1./minPrices
-    indexes = peakutils.indexes(minPrices, thres=0.02/max(minPrices), min_dist=1) #you can fine tune the thres to smaller value to get even shorter period
-    print("min: ", indexes)
+    
+    #indexes = peakutils.indexes(minPrices, thres=0.02/max(maxPrices), min_dist=1) #you can fine tune the thres to smaller value to get even shorter period
+    '''print("min: ", indexes)
     for i in range (0, indexes.size):
-        #print("lowest: ", obj[indexes[i]]['Date'])
+        print("lowest: ", obj[indexes[i]]['Date'])
         for j in range (i + 1, indexes.size):
             num1 = obj[indexes[i]]['Low']
             num2 = obj[indexes[j]]['Low']
@@ -102,7 +118,7 @@ def calMin(obj):
                     print("double bottom captured, info as below: ")
                     print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
                     print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                    print(spread_price*10)
+                    print(spread_price*10)'''
 
 
         
