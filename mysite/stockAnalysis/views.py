@@ -57,6 +57,8 @@ def index(request):
 def search_stock (num): 
     global spread_price
     global df_reframe
+    global spread_vector
+    spread_vector = 15
     end_date = today-np.timedelta64(1,'D')
     start_date = today - np.timedelta64(10,'W')
     print("start_date: ",start_date)
@@ -83,17 +85,17 @@ def get_stock_info ():
     return df_reframe    
 
 def find_pattern(obj, x):
-    spread_vector = 15
-    global buy_price
-    global sell_price
-    global double_top
-    global double_bottom
     price = np.array(obj[x])
     if (x == "Low"):
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1, valley=True)
     else:
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
     print("index: ", indexes)
+    
+    calculation(obj, x, indexes)
+    recommendation(obj, x, indexes)
+
+def calculation(obj, x, indexes):
     for i in range (0, indexes.size):
         for j in range (i + 1, indexes.size):
             num1 = obj[indexes[i]][x]
@@ -117,25 +119,50 @@ def find_pattern(obj, x):
                         #print("double bottom captured, info as below: ")
                         #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
                         #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                    else:
-                        buy_price = min(num1,num2)
-                        double_bottom = "Pattern not found, trough but without volume"
-                else: #this should be short term: within 3months (should deal with this later!!!)
-                    single_bottom(obj,x, num1, num2, volume1, volume2, spread_vector)
-            else: # (x == "High")
-                if (diff <= spread_price*spread_vector):
-                    #print("double top captured, if you see the next message, volume passed too :D")
-                    if  (volume1 > volume2): 
-                        sell_price = max(num1,num2)
-                        double_top = "Yes"
-                        print("double top captured, info as below: ")
-                        print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                        print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                    else:
-                        sell_price = max(num1,num2)
-                        double_top = "Pattern not found, peak but without volume"
+
+def recommendation(obj, x, indexes): #this should only calculate things within three months
+    global buy_price
+    global sell_price
+    global double_top
+    global double_bottom
+    for i in range (0, indexes.size):
+        obj_date = obj[indexes[i]]['Date']
+        lower_limit = today - np.timedelta64(12,'W')
+        if (lower_limit <= obj_date <=today):
+            for j in range (i + 1, indexes.size):
+                num1 = obj[indexes[i]][x]
+                num2 = obj[indexes[j]][x]
+                volume1 = obj[indexes[i]]['Share Volume (000)']
+                volume2 = obj[indexes[j]]['Share Volume (000)']
+                date1 = obj[indexes[i]]['Date']
+                date2 = obj[indexes[j]]['Date']
+                if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
+                    diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
                 else:
-                    single_top(obj,x, num1, num2, volume1, volume2, spread_vector)
+                    diff = abs(num1-num2)
+                if (x == "Low"):
+                    if (diff <= spread_price*spread_vector):
+                        if  (volume1 > volume2): 
+                            buy_price = min(num1,num2) #this will return the latest lowest prices num1, num2
+                            double_bottom = "Yes"
+                        else:
+                            buy_price = min(num1,num2)
+                            double_bottom = "Pattern not found, trough but without volume"
+                    else: #this should be short term: within 3months (should deal with this later!!!)
+                        single_bottom(obj,x, num1, num2, volume1, volume2, spread_vector)
+                else: # (x == "High")
+                    if (diff <= spread_price*spread_vector):
+                        if  (volume1 > volume2): 
+                            sell_price = max(num1,num2)
+                            double_top = "Yes"
+                            print("double top captured, info as below: ")
+                            print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                            print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                        else:
+                            sell_price = max(num1,num2)
+                            double_top = "Pattern not found, peak but without volume"
+                    else:
+                        single_top(obj,x, num1, num2, volume1, volume2, spread_vector)
 
 def single_top (obj, x, num1, num2, volume1, volume2, spread_vector):
     print("calling normal_price_pattern")
