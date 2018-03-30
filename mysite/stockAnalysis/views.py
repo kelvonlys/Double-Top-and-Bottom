@@ -61,7 +61,7 @@ def search_stock (num):
     start_date = today - np.timedelta64(10,'W')
     print("start_date: ",start_date)
     print("end_date: ",end_date)
-    df = quandl.get("HKEX/"+num, start_date=start_date, end_date=end_date, authtoken=API)
+    df = quandl.get("HKEX/"+num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
     df_reset = df.reset_index()
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
@@ -102,8 +102,8 @@ def find_pattern(obj, x):
             date2 = obj[indexes[j]]['Date']
             volume1 = obj[indexes[i]]['Share Volume (000)']
             volume2 = obj[indexes[j]]['Share Volume (000)']
-            print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-            print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
             if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
                 diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
             else:
@@ -117,51 +117,25 @@ def find_pattern(obj, x):
                         #print("double bottom captured, info as below: ")
                         #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
                         #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                else:
+                    else:
+                        buy_price = min(num1,num2)
+                        double_bottom = "Pattern not found, trough but without volume"
+                else: #this should be short term: within 3months (should deal with this later!!!)
                     single_bottom(obj,x, num1, num2, volume1, volume2, spread_vector)
-                    '''for k in range (0, len(obj)):
-                        norm_price = obj[k][x]
-                        adjusted_price = min(num1,num2)
-                        if (adjusted_price-norm_price)!= 0: #to handle the case log10(0) which would result in math error 
-                            diff = round(abs(adjusted_price-norm_price), -int(floor(log10(abs(adjusted_price-norm_price)))))
-                        else:
-                            diff = abs(adjusted_price-norm_price)
-                        if (diff <= spread_price*spread_vector):
-                            if  (volume1 > volume2): 
-                                buy_price = min(adjusted_price,norm_price)
-                                double_bottom = "Yes"
-                            else:
-                                buy_price = min(adjusted_price,norm_price)
-                                double_bottom = "Yes but without volume"
-                                #print("double top found without volume")
-                        else:
-                            buy_price = min(adjusted_price,norm_price)'''
             else: # (x == "High")
                 if (diff <= spread_price*spread_vector):
                     #print("double top captured, if you see the next message, volume passed too :D")
                     if  (volume1 > volume2): 
                         sell_price = max(num1,num2)
                         double_top = "Yes"
-                        #print("double top captured, info as below: ")
-                        #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                        #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                        print("double top captured, info as below: ")
+                        print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                        print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                    else:
+                        sell_price = max(num1,num2)
+                        double_top = "Pattern not found, peak but without volume"
                 else:
                     single_top(obj,x, num1, num2, volume1, volume2, spread_vector)
-                    '''for k in range (0, len(obj)):
-                        norm_price = obj[k][x]
-                        adjusted_price = max(num1,num2)
-                        if (adjusted_price-norm_price)!= 0: #to handle the case log10(0) which would result in math error 
-                            diff = round(abs(adjusted_price-norm_price), -int(floor(log10(abs(adjusted_price-norm_price)))))
-                        else:
-                            diff = abs(adjusted_price-norm_price)
-                        #print("lowest K: ", num1)
-                        if (diff <= spread_price*spread_vector):
-                            if  (volume1 > volume2): 
-                                sell_price = max(adjusted_price,norm_price)
-                                double_top = "Yes"
-                            else:
-                                sell_price = max(adjusted_price,norm_price)
-                                double_top = "Yes but without volume"'''
 
 def single_top (obj, x, num1, num2, volume1, volume2, spread_vector):
     print("calling normal_price_pattern")
@@ -182,7 +156,7 @@ def single_top (obj, x, num1, num2, volume1, volume2, spread_vector):
                 sell_price = max(adjusted_price,norm_price)
                 double_top = "Yes but not peak and without volume"
         else:
-            sell_price = adjusted_price
+            sell_price = max(adjusted_price, norm_price)
             double_top = "No double top pattern is detected, recommendation made according to the latest highest price"
 
 def single_bottom (obj, x, num1, num2, volume1, volume2, spread_vector):
@@ -201,10 +175,11 @@ def single_bottom (obj, x, num1, num2, volume1, volume2, spread_vector):
                 double_bottom = "Yes but not trough"
             else:
                 buy_price = min(adjusted_price,norm_price)
-                double_bottom = "No double bottom pattern is detected, recommendation made according to the latest highest price"
+                double_bottom = "Yes but not trough and without volume"
                 #print("double top found without volume")
         else:
             buy_price = min(adjusted_price,norm_price)
+            double_bottom = "No double bottom pattern is detected, recommendation made according to the latest lowest price"
         
 def find_spread(self):
     #Spread table from HKEX
