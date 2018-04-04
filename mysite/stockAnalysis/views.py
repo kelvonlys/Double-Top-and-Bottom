@@ -11,6 +11,7 @@ import json
 from math import log10, floor
 
 
+
 from fbprophet import Prophet
 import matplotlib.pyplot as plt
 
@@ -49,7 +50,7 @@ def index(request):
             result = form.cleaned_data['stockNum']
             search_stock (result)
             #getRSI (result)
-            return render(request, 'stockAnalysis/basic.html', {'price': [result, buy_price, sell_price, double_top, double_bottom, spread_price]})
+            return render(request, 'stockAnalysis/basic.html', {'price': [result, buy_price, sell_price, double_top, double_bottom, spread_price*spread_vector]})
     else:
         form = NameForm()
     return render(request, 'stockAnalysis/home.html', {'form': form})
@@ -58,9 +59,10 @@ def search_stock (num):
     global spread_price
     global df_reframe
     global spread_vector
-    spread_vector = 15
+    spread_vector = 5 
+    period_vector = 52
     end_date = today-np.timedelta64(1,'D')
-    start_date = today - np.timedelta64(10,'W')
+    start_date = today - np.timedelta64(period_vector,'W')
     print("start_date: ",start_date)
     print("end_date: ",end_date)
     df = quandl.get("HKEX/"+num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
@@ -68,15 +70,39 @@ def search_stock (num):
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
     df_reframe = df_reframe.to_records(index=False)
+    #print("df_reframe: ",df_reframe)
     rsiPrice = df['Previous Close']
     spread_price = find_spread(df_reframe['Previous Close'][0])
     
-    period_vector = 30
-    date = df_reframe['Date'][1]
-    date2 = date + np.timedelta64(period_vector,'D') # can be 'h', 'D' or 'W' or 'Y'
-    print("date2: ", date)
-    print("date2: ", date2)
+    '''data.update({'list'+'i': [
+                {
+                    'Date':df_reframe['Date'][1]
+                },
+                {
+                    'Price':2
+                }
+            ]})
+    data.update(
+            {'list2': [
+                {
+                    'Date':df_reframe['Date'][1]
+                },
+                {
+                    'Price':2
+                }
+            ]}
+    )'''
+    #date2 = date + np.timedelta64(period_vector,'D') # can be 'h', 'D' or 'W' or 'Y'
     
+    #df2 = pd.DataFrame({'Pair':[1],'Date': [1, 2], 'Price': [3, 4]})
+    #d.append(df2) 
+    #print("d: ", data)
+
+    old_pairs = np.array([],dtype=[('Price', 'f8'), ('Volume', object), ('Date', object)])
+    new_pairs = np.array([(20.3,(20,10), (df_reframe['Date'][0],df_reframe['Date'][1]))],dtype=[('Price', 'f8'), ('Volume', object),('Date', object)])
+    new_pairs = np.concatenate((old_pairs, new_pairs))
+    print("new_pairs: ",new_pairs['Date'])
+
     find_pattern(df_reframe, "Low")
     find_pattern(df_reframe, "High")
 
@@ -87,15 +113,16 @@ def get_stock_info ():
 def find_pattern(obj, x):
     price = np.array(obj[x])
     if (x == "Low"):
-        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1, valley=True)
+        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=7, valley=True)
+        bottom_calculation(obj, x, indexes)
     else:
-        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
+        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=7) #you can fine tune the thres to smaller value to get even shorter period
+        top_calculation(obj, x, indexes)
     print("index: ", indexes)
-    
-    calculation(obj, x, indexes)
-    recommendation(obj, x, indexes)
+    #recommendation(obj, x, indexes)
 
-def calculation(obj, x, indexes):
+def top_calculation(obj, x, indexes):
+    max_pairs = np.array([],dtype=[('Price', object), ('Volume', object), ('Date', object)])
     for i in range (0, indexes.size):
         for j in range (i + 1, indexes.size):
             num1 = obj[indexes[i]][x]
@@ -104,23 +131,45 @@ def calculation(obj, x, indexes):
             date2 = obj[indexes[j]]['Date']
             volume1 = obj[indexes[i]]['Share Volume (000)']
             volume2 = obj[indexes[j]]['Share Volume (000)']
-            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
             if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
                 diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
             else:
                 diff = abs(num1-num2)
-            if (x == "Low"):
-                if (diff <= spread_price*spread_vector):
-                    #print("double bottom captured, if you see the next message, volume passed too :D")
-                    if  (volume1 > volume2): 
-                        buy_price = min(num1,num2) #this will return the latest lowest prices num1, num2
-                        double_bottom = "Yes"
-                        #print("double bottom captured, info as below: ")
-                        #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                        #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+            if (diff <= spread_price*spread_vector):
+                if  (volume1 > volume2): 
+                    print("double bottom captured, info as below: ", volume1)
+                    temp = np.array([((num1, num2),(volume1, volume2), (date1, date2))],dtype=[('Price', object), ('Volume', object), ('Date', object)])
+                    max_pairs = np.concatenate((max_pairs, temp))
+                    continue
+            elif (num2>num1):
+                continue
 
-def recommendation(obj, x, indexes): #this should only calculate things within three months
+    print("pairs: ", max_pairs)
+    
+
+def bottom_calculation(obj, x, indexes):
+    min_pairs = np.array([],dtype=[('Price', object), ('Volume', object), ('Date', object)])
+    for i in range (0, indexes.size):
+        for j in range (i + 1, indexes.size):
+            num1 = obj[indexes[i]][x]
+            num2 = obj[indexes[j]][x]
+            date1 = obj[indexes[i]]['Date']
+            date2 = obj[indexes[j]]['Date']
+            volume1 = obj[indexes[i]]['Share Volume (000)']
+            volume2 = obj[indexes[j]]['Share Volume (000)']
+            if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
+                diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
+            else:
+                diff = abs(num1-num2)
+            if (diff <= spread_price*spread_vector):
+                if  (volume1 > volume2): 
+                    print("double bottom captured, info as below: ", volume1)
+                    temp = np.array([((num1, num2),(volume1, volume2), (date1, date2))],dtype=[('Price', object), ('Volume', object), ('Date', object)])
+                    min_pairs = np.concatenate((min_pairs, temp))
+    print("pairs: ", min_pairs)
+
+def recommendation(obj, x, indexes): 
+    #this should only calculate things within three months
     global buy_price
     global sell_price
     global double_top
@@ -242,7 +291,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-#search_stock("00939")
+search_stock("01398")
 
 
 def getRSI (num):
