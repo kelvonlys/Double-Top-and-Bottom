@@ -59,8 +59,8 @@ def search_stock (num):
     global spread_price
     global df_reframe
     global spread_vector
-    spread_vector = 5
-    period_vector = 52*4
+    spread_vector = 3
+    period_vector = 52
     end_date = today-np.timedelta64(1,'D')
     start_date = today - np.timedelta64(period_vector,'W')
     print("start_date: ",start_date)
@@ -70,7 +70,8 @@ def search_stock (num):
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
     df_reframe = df_reframe.to_records(index=False)
-    #print("df_reframe: ",df_reframe)
+    #for i in range (0, len(df_reframe)):
+        #print("df_reframe: ",df_reframe[i]['High'], "date: ", df_reframe[i]['Date'])
     rsiPrice = df['Previous Close']
     spread_price = find_spread(df_reframe['Previous Close'][0])
 
@@ -81,6 +82,12 @@ def search_stock (num):
 def get_stock_info ():
     return df_reframe    
 
+def get_max_pairs():
+    return max_pairs
+
+def get_min_pairs():
+    return min_pairs
+
 def find_pattern(obj, x):
     price = np.array(obj[x])
     if (x == "Low"):
@@ -88,11 +95,13 @@ def find_pattern(obj, x):
         bottom_pattern(obj, x, indexes)
     else:
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
-        top_pattern(obj, x, indexes)
+        #top_pattern(obj, x, indexes)
     #print("index: ", indexes)
     #recommendation(obj, x, indexes)
 
+
 def top_pattern(obj, x, indexes):
+    global max_pairs
     max_pairs = np.array([],dtype=[('Price', object), ('Volume', object), ('Date', object)])
     for i in range (0, indexes.size):
         #print("indexes: ", obj[indexes[i]][x], "date" , obj[indexes[i]]['Date'])
@@ -113,14 +122,13 @@ def top_pattern(obj, x, indexes):
                     #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
                     temp = np.array([((num1, num2),(volume1, volume2), (date1, date2))],dtype=[('Price', object), ('Volume', object), ('Date', object)])
                     max_pairs = np.concatenate((max_pairs, temp))
-                    #break
             elif (num2>num1):
                 break
     top_calculation(obj, max_pairs)
     #print("max_pairs", max_pairs)
 
 def top_calculation(obj, max_pairs):
-    resistance_period = 2
+    resistance_period = 1
     success_count = 0
     success_rate = 0
     for i in range (0, max_pairs.size):
@@ -138,7 +146,7 @@ def top_calculation(obj, max_pairs):
                     failure_count += 1
                     #print("count: ", failure_count)
         if (failure_count == 0):
-                #print("max price: ", max_pairs[i]['Price'][1])
+                #print("SUCCESS: max price: ", max_pairs[i]['Price'][1])
                 #print("date: ", max_pairs[i]['Date'][1])
                 success_count += 1
     print("sucess count: ", success_count)
@@ -146,9 +154,10 @@ def top_calculation(obj, max_pairs):
     print("success_rate: ",success_rate)
 
 def bottom_pattern(obj, x, indexes):
+    global min_pairs
     min_pairs = np.array([],dtype=[('Price', object), ('Volume', object), ('Date', object)])
     for i in range (0, indexes.size):
-        #print("indexes: ", obj[indexes[i]][x], "date" , obj[indexes[i]]['Date'])
+        print("indexes: ", obj[indexes[i]][x], "date" , obj[indexes[i]]['Date'])
         for j in range (i + 1, indexes.size):
             num1 = obj[indexes[i]][x]
             num2 = obj[indexes[j]][x]
@@ -166,10 +175,12 @@ def bottom_pattern(obj, x, indexes):
                     #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
                     temp = np.array([((num1, num2),(volume1, volume2), (date1, date2))],dtype=[('Price', object), ('Volume', object), ('Date', object)])
                     min_pairs = np.concatenate((min_pairs, temp))
-                    #break
-            elif (num2>num1):
+            elif (num2<num1):
+                #print("when num1 > num2, i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                #print("when num1 > num2, j: ", num2, 'i volume: ', volume2, "date: ", date2)
                 break
     bottom_calculation(obj, min_pairs)
+    print("min_pairs", min_pairs)
 
 def bottom_calculation(obj, min_pairs):
     resistance_period = 1
@@ -184,9 +195,9 @@ def bottom_calculation(obj, min_pairs):
                 #print("date: ", obj[j]['Date'])
                 if(obj[j]['Low'] < (min_pairs[i]['Price'][1]-spread_price*spread_vector)):
                     next_higher_price = obj[j]['Low']
-                    #print("next_higher_price: ", next_higher_price)
+                    #print("next_lower_price: ", next_higher_price)
                     #print("max price: ", min_pairs[i]['Price'][1])
-                    #print("date: ", obj[j]['Date'])
+                    #print("lower date: ", obj[j]['Date'])
                     failure_count += 1
                     #print("count: ", failure_count)
         if (failure_count == 0):
@@ -225,9 +236,9 @@ def recommendation(obj, x, indexes):
                         if  (volume1 > volume2): 
                             buy_price = min(num1,num2) #this will return the latest lowest prices num1, num2
                             double_bottom = "Yes"
-                            print("double bottom captured, info as below: ")
-                            print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                            print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                            #print("double bottom captured, info as below: ")
+                            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
                         else:
                             buy_price = min(num1,num2)
                             double_bottom = "Pattern not found, trough but without volume"
@@ -238,9 +249,9 @@ def recommendation(obj, x, indexes):
                         if  (volume1 > volume2): 
                             sell_price = max(num1,num2)
                             double_top = "Yes"
-                            print("double top captured, info as below: ")
-                            print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                            print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                            #print("double top captured, info as below: ")
+                            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
                         else:
                             sell_price = max(num1,num2)
                             double_top = "Pattern not found, peak but without volume"
@@ -248,7 +259,6 @@ def recommendation(obj, x, indexes):
                         single_top(obj, indexes)
 
 def single_top (obj, indexes):
-    print("calling normal_price_pattern")
     global sell_price
     global double_top
     for i in range (0, indexes.size):
@@ -338,7 +348,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-search_stock("01038")
+search_stock("00003")
 
 
 def getRSI (num):
