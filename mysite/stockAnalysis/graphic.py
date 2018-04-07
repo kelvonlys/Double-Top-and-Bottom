@@ -23,23 +23,31 @@ def graphic(request):
     df = views.get_stock_info()
     #max_pairs = views.get_max_pairs()
     min_pairs = views.get_min_pairs()
-    fig=Figure()
+    buy_price = views.get_buy_price()
+    sell_price = views.get_sell_price()
+
+    fig=Figure(facecolor='#f6f6f6')
     ax=fig.add_subplot(111)
     x=df['Date']
     now=datetime.datetime.now()
     delta=datetime.timedelta(days=1)
     
-    ax.plot_date(x, df['Low'], '-')
+    ax.plot_date(x, df['Low'], '-', color = '#BF463F')
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
-    ax.plot_date(x,df['High'], '-')
+    ax.plot_date(x, df['High'], '-', color = '#1971E5')
+    
 
     #for i in range (0, max_pairs.size):
         #ax.axvline(x=max_pairs[i]['Date'][0], color='r')
         #ax.axvline(x=max_pairs[i]['Date'][1], color='r')
 
     for j in range (0, min_pairs.size):
-        ax.axvline(x=min_pairs[j]['Date'][0], color='r')
-        ax.axvline(x=min_pairs[j]['Date'][1], color='g')
+        ax.axvline(x=min_pairs[j]['Date'][0], color='#0F892B', linewidth=0.5)
+        ax.axvline(x=min_pairs[j]['Date'][1], color='#D4CD06')
+        ax.axhline(y=buy_price, color='k')
+        ax.axhline(y=sell_price, color='k')
+        #ax.scatter(x = min_pairs[j]['Date'][0], y=min_pairs[j]['Price'][0],color='r')
+        #ax.scatter(x = min_pairs[j]['Date'][1], y=min_pairs[j]['Price'][1],color='r')
 
     fig.autofmt_xdate()
     canvas=FigureCanvas(fig)

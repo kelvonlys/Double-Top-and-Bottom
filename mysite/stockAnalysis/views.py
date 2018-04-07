@@ -59,13 +59,15 @@ def search_stock (num):
     global spread_price
     global df_reframe
     global spread_vector
-    spread_vector = 3
+    global stock_num
+    stock_num = num
+    spread_vector = 2
     period_vector = 52
     end_date = today-np.timedelta64(1,'D')
     start_date = today - np.timedelta64(period_vector,'W')
     print("start_date: ",start_date)
     print("end_date: ",end_date)
-    df = quandl.get("HKEX/"+num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
+    df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
     df_reset = df.reset_index()
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
@@ -77,6 +79,8 @@ def search_stock (num):
 
     find_pattern(df_reframe, "Low")
     find_pattern(df_reframe, "High")
+    recommendation("Low")
+    recommendation("High")
 
 
 def get_stock_info ():
@@ -88,6 +92,12 @@ def get_max_pairs():
 def get_min_pairs():
     return min_pairs
 
+def get_sell_price():
+    return sell_price
+
+def get_buy_price():
+    return buy_price
+
 def find_pattern(obj, x):
     price = np.array(obj[x])
     if (x == "Low"):
@@ -95,10 +105,8 @@ def find_pattern(obj, x):
         bottom_pattern(obj, x, indexes)
     else:
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
-        #top_pattern(obj, x, indexes)
+        top_pattern(obj, x, indexes)
     #print("index: ", indexes)
-    #recommendation(obj, x, indexes)
-
 
 def top_pattern(obj, x, indexes):
     global max_pairs
@@ -150,7 +158,8 @@ def top_calculation(obj, max_pairs):
                 #print("date: ", max_pairs[i]['Date'][1])
                 success_count += 1
     print("sucess count: ", success_count)
-    success_rate = (success_count*100/max_pairs.size)
+    if (success_count!=0):
+        success_rate = (success_count*100/max_pairs.size)
     print("success_rate: ",success_rate)
 
 def bottom_pattern(obj, x, indexes):
@@ -205,15 +214,34 @@ def bottom_calculation(obj, min_pairs):
                 #print("date: ", min_pairs[i]['Date'][1])
                 success_count += 1
     print("bottom sucess count: ", success_count)
-    success_rate = (success_count*100/min_pairs.size)
+    if (success_count!=0):
+        success_rate = (success_count*100/min_pairs.size)
     print("bottom success_rate: ",success_rate)
 
-def recommendation(obj, x, indexes): 
+def recommendation(x): 
     #this should only calculate things within three months
     global buy_price
     global sell_price
     global double_top
     global double_bottom
+
+    recommended_period = 12
+    end_date = today-np.timedelta64(1,'D')
+    start_date = today - np.timedelta64(recommended_period,'W')
+    #print("start_date : ",start_date)
+    #print("end_date: ",end_date)
+    df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
+    df_reset = df.reset_index()
+    obj = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
+    obj = obj.dropna(how='any')
+    obj = obj.to_records(index=False)
+    price = np.array(obj[x])
+
+    if (x == "Low"):
+        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1, valley=True)
+    else:
+        indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
+
     for i in range (0, indexes.size):
         obj_date = obj[indexes[i]]['Date']
         lower_limit = today - np.timedelta64(12,'W')
@@ -348,7 +376,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-search_stock("00003")
+#search_stock("00003")
 
 
 def getRSI (num):
