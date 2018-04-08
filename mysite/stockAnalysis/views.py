@@ -166,7 +166,7 @@ def bottom_pattern(obj, x, indexes):
     global min_pairs
     min_pairs = np.array([],dtype=[('Price', object), ('Volume', object), ('Date', object)])
     for i in range (0, indexes.size):
-        print("indexes: ", obj[indexes[i]][x], "date" , obj[indexes[i]]['Date'])
+        #print("indexes: ", obj[indexes[i]][x], "date" , obj[indexes[i]]['Date'])
         for j in range (i + 1, indexes.size):
             num1 = obj[indexes[i]][x]
             num2 = obj[indexes[j]][x]
@@ -189,7 +189,7 @@ def bottom_pattern(obj, x, indexes):
                 #print("when num1 > num2, j: ", num2, 'i volume: ', volume2, "date: ", date2)
                 break
     bottom_calculation(obj, min_pairs)
-    print("min_pairs", min_pairs)
+    #print("min_pairs", min_pairs)
 
 def bottom_calculation(obj, min_pairs):
     resistance_period = 1
