@@ -61,13 +61,14 @@ def search_stock (num):
     global spread_vector
     global stock_num
     stock_num = num
-    spread_vector = 2
-    period_vector = 52
+    spread_vector = 6
+    period_vector = 52*2
     end_date = today-np.timedelta64(1,'D')
     start_date = today - np.timedelta64(period_vector,'W')
     print("start_date: ",start_date)
     print("end_date: ",end_date)
     df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
+    #df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
     df_reset = df.reset_index()
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
@@ -81,6 +82,10 @@ def search_stock (num):
     find_pattern(df_reframe, "High")
     recommendation("Low")
     recommendation("High")
+    set_buying_point()
+    cal_double_top()
+    cal_hold_till()
+
 
 
 def get_stock_info ():
@@ -132,7 +137,7 @@ def top_pattern(obj, x, indexes):
                     max_pairs = np.concatenate((max_pairs, temp))
             elif (num2>num1):
                 break
-    top_calculation(obj, max_pairs)
+    #top_calculation(obj, max_pairs)
     #print("max_pairs", max_pairs)
 
 def top_calculation(obj, max_pairs):
@@ -188,7 +193,7 @@ def bottom_pattern(obj, x, indexes):
                 #print("when num1 > num2, i: ", num1, " i's volume: ", volume1, "date: ", date1)
                 #print("when num1 > num2, j: ", num2, 'i volume: ', volume2, "date: ", date2)
                 break
-    bottom_calculation(obj, min_pairs)
+    #bottom_calculation(obj, min_pairs)
     #print("min_pairs", min_pairs)
 
 def bottom_calculation(obj, min_pairs):
@@ -217,6 +222,49 @@ def bottom_calculation(obj, min_pairs):
     if (success_count!=0):
         success_rate = (success_count*100/min_pairs.size)
     print("bottom success_rate: ",success_rate)
+
+def set_buying_point():
+    global buying_points
+    buying_points = np.array([],dtype=[('Price', object), ('Date', object)])
+    for i in range (0, min_pairs.size):
+        temp_obj = transaction_date_adder(min_pairs[i]['Date'][1], 1)
+        temp = np.array([(temp_obj['Low'], temp_obj['Date'])],dtype=[('Price', object), ('Date', object)])
+        buying_points = np.concatenate((buying_points, temp))
+    print("buying_points: ",buying_points) 
+
+def transaction_date_adder(date, period_to_be_added):
+    for i in range (0, len(df_reframe)):
+        if (date == df_reframe['Date'][i]):
+            return df_reframe[i+1]
+
+def cal_double_top():
+    double_top_profit = 0
+    for i in range (0, buying_points.size):
+        for j in range (0, max_pairs.size):
+            if (max_pairs[j]['Date'][1] >= buying_points[i]['Date']):
+                #if (max_pairs[j]['Price'][1] > buying_points[i]['Price']):
+                    selling_price = transaction_date_adder(max_pairs[j]['Date'][1], 1)['Low']
+                    print("sell_price: ", selling_price, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+                    double_top_profit = double_top_profit + selling_price - buying_points[i]['Price']
+                    print("double_top_profit: ", double_top_profit)
+                    break
+            elif (j == max_pairs.size-1):
+                selling_price = df_reframe[df_reframe.size-1]['Low']
+                double_top_profit = double_top_profit + selling_price - buying_points[i]['Price'] 
+                print("sell_price: ", selling_price)
+                print("double_top_profit recently: ", double_top_profit, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+    print("double_top_profit: ", double_top_profit)
+
+def cal_hold_till():
+    hold_till_profit = 0
+    for i in range (0, buying_points.size):
+        #selling_price = transaction_date_adder(buying_points[i]['Date'], 13)['High']
+        selling_price = df_reframe[df_reframe.size-1]['Low']
+        hold_till_profit = hold_till_profit + selling_price - buying_points[i]['Price'] 
+        #print("hold_till_profit: ", hold_till_profit, "date: ", buying_points[i]['Date'])
+    print("hold_till_profit: ", hold_till_profit, "date: ", df_reframe[df_reframe.size-1]['Date'])
+
+
 
 def recommendation(x): 
     #this should only calculate things within three months
@@ -338,10 +386,11 @@ def single_bottom (obj, indexes):
                     #print("double top found without volume")
             else:
                 buy_price = min(adjusted_price,norm_price)
-                #print("num1: ", adjusted_price, " i's volume: ", volume1)
+                #print("num1: ", adjusted_price, " i's volume: ", volume1, "date: ", obj[indexes[i]]['Date'])
                 #print("num2: ", norm_price, 'i volume: ', volume2)
                 double_bottom = "No double bottom pattern is detected, recommendation made according to the trough detected"
-        
+
+
 def find_spread(self):
     #Spread table from HKEX
     if (0.01 <= self <= 0.25):
@@ -376,7 +425,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-#search_stock("00003")
+#search_stock("00700")
 
 
 def getRSI (num):

@@ -39,13 +39,13 @@ def graphic(request):
     ax.axhline(y=buy_price, color='k')
     ax.axhline(y=sell_price, color='k')
 
-    #for i in range (0, max_pairs.size):
-    #    ax.scatter(x=max_pairs[i]['Date'][0], y=max_pairs[i]['Price'][0], marker= 'x', color='r')
-    #    ax.scatter(x=max_pairs[i]['Date'][1], y=max_pairs[i]['Price'][1], marker= 'x', color='r')
+    for i in range (0, max_pairs.size):
+        ax.scatter(x=max_pairs[i]['Date'][0], y=max_pairs[i]['Price'][0], marker= 'x', color='r')
+        ax.scatter(x=max_pairs[i]['Date'][1], y=max_pairs[i]['Price'][1], marker= 'x', color='r')
 
     for j in range (0, min_pairs.size):
-        ax.axvline(x=min_pairs[j]['Date'][0], color='#0F892B', linewidth=0.5)
-        ax.axvline(x=min_pairs[j]['Date'][1], color='#D4CD06')
+        #ax.axvline(x=min_pairs[j]['Date'][0], color='#0F892B', linewidth=0.5)
+        #ax.axvline(x=min_pairs[j]['Date'][1], color='#D4CD06')
 
         ax.scatter(x = min_pairs[j]['Date'][0], y=min_pairs[j]['Price'][0], marker= 'x', color='r')
         ax.scatter(x = min_pairs[j]['Date'][1], y=min_pairs[j]['Price'][1], marker= 'x', color='r')
