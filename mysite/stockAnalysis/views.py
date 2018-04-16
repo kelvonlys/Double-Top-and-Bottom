@@ -50,7 +50,7 @@ def index(request):
             result = form.cleaned_data['stockNum']
             search_stock (result)
             #getRSI (result)
-            return render(request, 'stockAnalysis/basic.html', {'price': [result, buy_price, sell_price, double_top, double_bottom, spread_price*spread_vector]})
+            return render(request, 'stockAnalysis/basic.html', {'price': [result, buy_price, sell_price, double_top, double_bottom, spread_price*spread_vector, success_rate, bottom_success_rate, double_top_profit_percentage, hold_till_profit_percentage]})
     else:
         form = NameForm()
     return render(request, 'stockAnalysis/home.html', {'form': form})
@@ -68,8 +68,8 @@ def search_stock (num):
     print("start_date: ",start_date)
     print("end_date: ",end_date)
     print("stock number: ", stock_num)
-    #df = quandl.get("HKEX/"+stock_num, start_date="2014-01-01", end_date="2016-01-01", authtoken=API)#HSI:BCIW/_HSI
-    df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
+    df = quandl.get("HKEX/"+stock_num, start_date="2014-04-15", end_date="2016-04-12", authtoken=API)#HSI:BCIW/_HSI
+    #df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
     df_reset = df.reset_index()
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
@@ -136,12 +136,13 @@ def top_pattern(obj, x, indexes):
                     max_pairs = np.concatenate((max_pairs, temp))
             elif (num2>num1):
                 break
-    #top_calculation(obj, max_pairs)
+    top_calculation(obj, max_pairs)
     #print("max_pairs", max_pairs)
 
 def top_calculation(obj, max_pairs):
     resistance_period = 1
     success_count = 0
+    global success_rate
     success_rate = 0
     for i in range (0, max_pairs.size):
         #print("pairs: ", max_pairs[i]['Date'])
@@ -192,13 +193,15 @@ def bottom_pattern(obj, x, indexes):
                 #print("when num1 > num2, i: ", num1, " i's volume: ", volume1, "date: ", date1)
                 #print("when num1 > num2, j: ", num2, 'i volume: ', volume2, "date: ", date2)
                 break
-    #bottom_calculation(obj, min_pairs)
+    bottom_calculation(obj, min_pairs)
     #print("min_pairs", min_pairs)
 
 def bottom_calculation(obj, min_pairs):
     resistance_period = 1
     success_count = 0
-    success_rate = 0
+    global bottom_success_rate
+    bottom_success_rate = 0
+    
     for i in range (0, min_pairs.size):
         #print("pairs: ", min_pairs[i]['Date'])
         failure_count = 0
@@ -219,8 +222,8 @@ def bottom_calculation(obj, min_pairs):
                 success_count += 1
     print("bottom sucess count: ", success_count)
     if (success_count!=0):
-        success_rate = (success_count*100/min_pairs.size)
-    print("bottom success_rate: ",success_rate)
+        bottom_success_rate = (success_count*100/min_pairs.size)
+    print("bottom success_rate: ",bottom_success_rate)
 
 def set_buying_point():
     global buying_points
@@ -236,12 +239,12 @@ def transaction_date_adder(date, period_to_be_added):
         if (date == df_reframe['Date'][i]):
             return df_reframe[i+1]
 
-def cal_double_top():
+'''def cal_double_top():
     double_top_profit = 0
     for i in range (0, buying_points.size):
         for j in range (0, max_pairs.size):
             if (max_pairs[j]['Date'][1] >= buying_points[i]['Date']):
-                if (max_pairs[j]['Price'][1] > buying_points[i]['Price']):
+                #if (max_pairs[j]['Price'][1] > buying_points[i]['Price']):
                     selling_price = transaction_date_adder(max_pairs[j]['Date'][1], 1)['Low']
                     #print("sell_price: ", selling_price, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
                     double_top_profit = double_top_profit + selling_price - buying_points[i]['Price']
@@ -252,16 +255,59 @@ def cal_double_top():
                 double_top_profit = double_top_profit + selling_price - buying_points[i]['Price'] 
                 #print("sell_price: ", selling_price)
                 #print("double_top_profit recently: ", double_top_profit, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
-    print("double_top_profit: ", double_top_profit*100/df_reframe[df_reframe.size-1]['Low'])
+    print("double_top_profit: ", double_top_profit*100/df_reframe[df_reframe.size-1]['Low'])'''
+
+def cal_double_top():
+    global double_top_profit_percentage
+    double_top_profit_percentage = 0
+    double_top_profit = 0
+    temp_buying_points = np.copy(buying_points)
+    index_to_del = np.array([],dtype=[('index', object)])
+
+    ##### for selling if price breaks the double bottom ####### but this performance is worse
+    '''
+    for i in range (0, temp_buying_points.size):
+        for k in range (0, len(df_reframe)):
+            if (temp_buying_points[i]['Date'] <= df_reframe['Date'][k] <= temp_buying_points[i]['Date'] + np.timedelta64(1,'W')):
+                if(df_reframe['Low'][k] < (temp_buying_points[i]['Price']-spread_price*spread_vector)):
+                    selling_price = df_reframe['Low'][k]
+                    double_top_profit = double_top_profit + selling_price - temp_buying_points[i]['Price']
+                    temp_buying_points[i]['Price'] = 0
+                    #print("double_top_profit in test: ", double_top_profit)
+                    break
+    print("buying_points for i loop: ", buying_points)'''
+
+
+    for i in range (0, temp_buying_points.size):
+        if (temp_buying_points[i]['Price'] == 0):
+            continue
+        for j in range (0, max_pairs.size):
+            if (max_pairs[j]['Date'][1] >= temp_buying_points[i]['Date']):
+                #if (max_pairs[j]['Price'][1] > temp_buying_points[i]['Price']):
+                    selling_price = transaction_date_adder(max_pairs[j]['Date'][1], 1)['Low']
+                    #print("sell_price: ", selling_price, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+                    double_top_profit = double_top_profit + selling_price - temp_buying_points[i]['Price']
+                    #print("double_top_profit: ", double_top_profit)
+                    break
+            elif (j == max_pairs.size-1):
+                selling_price = df_reframe[df_reframe.size-1]['Low']
+                double_top_profit = double_top_profit + selling_price - temp_buying_points[i]['Price'] 
+                #print("sell_price: ", selling_price)
+                #print("double_top_profit recently: ", double_top_profit, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+    double_top_profit_percentage = double_top_profit*100/df_reframe[df_reframe.size-1]['Low']
+    print("double_top_profit %: ", double_top_profit_percentage)
 
 def cal_hold_till():
+    global hold_till_profit_percentage
+    hold_till_profit_percentage = 0
     hold_till_profit = 0
     for i in range (0, buying_points.size):
         #selling_price = transaction_date_adder(buying_points[i]['Date'], 13)['High']
         selling_price = df_reframe[df_reframe.size-1]['Low']
         hold_till_profit = hold_till_profit + selling_price - buying_points[i]['Price'] 
         #print("hold_till_profit: ", hold_till_profit, "date: ", buying_points[i]['Date'])
-    print("hold_till_profit: ", hold_till_profit*100/df_reframe[df_reframe.size-1]['Low'])
+    hold_till_profit_percentage = hold_till_profit*100/df_reframe[df_reframe.size-1]['Low']
+    print("hold_till_profit: ", hold_till_profit_percentage)
     print("latest price: ", df_reframe[df_reframe.size-1]['Low'])
     print("date: ", df_reframe[df_reframe.size-1]['Date'])
 
@@ -422,7 +468,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-#search_stock("00939")
+#search_stock("00019")
 
 
 def getRSI (num):

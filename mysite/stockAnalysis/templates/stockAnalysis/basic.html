@@ -1,11 +1,16 @@
 {% extends "stockAnalysis/header.html" %}
 {% block content %}
+	<p>num: {{ price.0 }}</p>
 	<p>Double bottom pattern: {{price.4}}</p>
 	<p>Buying price: {{price.1}}</p>
 	<p>Double top pattern: {{price.3}}</p>
 	<p>Selling price: {{price.2}}</p>
-	<p>num: {{ price.0 }}</p>
 	<p>Spread price: {{ price.5 }}</p>
+</br>
+	<p>Double Top success rate: {{ price.6 }}%</p>
+	<p>Double Bottom success rate: {{ price.7 }} %</p>
+	<p>Profit % (Double Top): {{ price.8}}</p>
+	<p>Profit % (Hold till today): {{ price.9}}</p>
 	<img src="/graphic.png/" width="70%">
 	
 {% endblock %}
