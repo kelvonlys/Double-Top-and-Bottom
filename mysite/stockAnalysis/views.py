@@ -61,22 +61,22 @@ def search_stock (num):
     global spread_vector
     global stock_num
     stock_num = num
-    spread_vector = 6
+    spread_vector = 5
     period_vector = 52*2
     end_date = today-np.timedelta64(1,'D')
     start_date = today - np.timedelta64(period_vector,'W')
     print("start_date: ",start_date)
     print("end_date: ",end_date)
+    print("stock number: ", stock_num)
+    #df = quandl.get("HKEX/"+stock_num, start_date="2014-01-01", end_date="2016-01-01", authtoken=API)#HSI:BCIW/_HSI
     df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
-    #df = quandl.get("HKEX/"+stock_num, start_date=start_date, end_date=end_date, authtoken=API)#HSI:BCIW/_HSI
     df_reset = df.reset_index()
     df_reframe = pd.DataFrame(df_reset, columns=['Date', 'High','Low', 'Share Volume (000)','Previous Close'])
     df_reframe = df_reframe.dropna(how='any')
     df_reframe = df_reframe.to_records(index=False)
-    #for i in range (0, len(df_reframe)):
-        #print("df_reframe: ",df_reframe[i]['High'], "date: ", df_reframe[i]['Date'])
     rsiPrice = df['Previous Close']
     spread_price = find_spread(df_reframe['Previous Close'][0])
+    #print("data: ", df_reframe)
 
     find_pattern(df_reframe, "Low")
     find_pattern(df_reframe, "High")
@@ -111,7 +111,6 @@ def find_pattern(obj, x):
     else:
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
         top_pattern(obj, x, indexes)
-    #print("index: ", indexes)
 
 def top_pattern(obj, x, indexes):
     global max_pairs
@@ -230,7 +229,7 @@ def set_buying_point():
         temp_obj = transaction_date_adder(min_pairs[i]['Date'][1], 1)
         temp = np.array([(temp_obj['Low'], temp_obj['Date'])],dtype=[('Price', object), ('Date', object)])
         buying_points = np.concatenate((buying_points, temp))
-    print("buying_points: ",buying_points) 
+    #print("buying_points: ",buying_points) 
 
 def transaction_date_adder(date, period_to_be_added):
     for i in range (0, len(df_reframe)):
@@ -242,18 +241,18 @@ def cal_double_top():
     for i in range (0, buying_points.size):
         for j in range (0, max_pairs.size):
             if (max_pairs[j]['Date'][1] >= buying_points[i]['Date']):
-                #if (max_pairs[j]['Price'][1] > buying_points[i]['Price']):
+                if (max_pairs[j]['Price'][1] > buying_points[i]['Price']):
                     selling_price = transaction_date_adder(max_pairs[j]['Date'][1], 1)['Low']
-                    print("sell_price: ", selling_price, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+                    #print("sell_price: ", selling_price, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
                     double_top_profit = double_top_profit + selling_price - buying_points[i]['Price']
-                    print("double_top_profit: ", double_top_profit)
+                    #print("double_top_profit: ", double_top_profit)
                     break
             elif (j == max_pairs.size-1):
                 selling_price = df_reframe[df_reframe.size-1]['Low']
                 double_top_profit = double_top_profit + selling_price - buying_points[i]['Price'] 
-                print("sell_price: ", selling_price)
-                print("double_top_profit recently: ", double_top_profit, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
-    print("double_top_profit: ", double_top_profit)
+                #print("sell_price: ", selling_price)
+                #print("double_top_profit recently: ", double_top_profit, "date: ", transaction_date_adder(max_pairs[j]['Date'][1], 1)['Date'])
+    print("double_top_profit: ", double_top_profit*100/df_reframe[df_reframe.size-1]['Low'])
 
 def cal_hold_till():
     hold_till_profit = 0
@@ -262,8 +261,9 @@ def cal_hold_till():
         selling_price = df_reframe[df_reframe.size-1]['Low']
         hold_till_profit = hold_till_profit + selling_price - buying_points[i]['Price'] 
         #print("hold_till_profit: ", hold_till_profit, "date: ", buying_points[i]['Date'])
-    print("hold_till_profit: ", hold_till_profit, "date: ", df_reframe[df_reframe.size-1]['Date'])
-
+    print("hold_till_profit: ", hold_till_profit*100/df_reframe[df_reframe.size-1]['Low'])
+    print("latest price: ", df_reframe[df_reframe.size-1]['Low'])
+    print("date: ", df_reframe[df_reframe.size-1]['Date'])
 
 
 def recommendation(x): 
@@ -291,48 +291,45 @@ def recommendation(x):
         indexes = detect_peaks(price, threshold=0.02/max(price), mpd=1) #you can fine tune the thres to smaller value to get even shorter period
 
     for i in range (0, indexes.size):
-        obj_date = obj[indexes[i]]['Date']
-        lower_limit = today - np.timedelta64(12,'W')
-        if (lower_limit <= obj_date <=today):
-            for j in range (i + 1, indexes.size):
-                num1 = obj[indexes[i]][x]
-                num2 = obj[indexes[j]][x]
-                volume1 = obj[indexes[i]]['Share Volume (000)']
-                volume2 = obj[indexes[j]]['Share Volume (000)']
-                date1 = obj[indexes[i]]['Date']
-                date2 = obj[indexes[j]]['Date']
-                #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
-                    diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
-                else:
-                    diff = abs(num1-num2)
-                if (x == "Low"):
-                    if (diff <= spread_price*spread_vector):
-                        if  (volume1 > volume2): 
-                            buy_price = min(num1,num2) #this will return the latest lowest prices num1, num2
-                            double_bottom = "Yes"
-                            #print("double bottom captured, info as below: ")
-                            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                        else:
-                            buy_price = min(num1,num2)
-                            double_bottom = "Pattern not found, trough but without volume"
-                    else: #this should be short term: within 3months (should deal with this later!!!)
-                        single_bottom(obj, indexes)
-                else: # (x == "High")
-                    if (diff <= spread_price*spread_vector):
-                        if  (volume1 > volume2): 
-                            sell_price = max(num1,num2)
-                            double_top = "Yes"
-                            #print("double top captured, info as below: ")
-                            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
-                            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
-                        else:
-                            sell_price = max(num1,num2)
-                            double_top = "Pattern not found, peak but without volume"
+        for j in range (i + 1, indexes.size):
+            num1 = obj[indexes[i]][x]
+            num2 = obj[indexes[j]][x]
+            volume1 = obj[indexes[i]]['Share Volume (000)']
+            volume2 = obj[indexes[j]]['Share Volume (000)']
+            date1 = obj[indexes[i]]['Date']
+            date2 = obj[indexes[j]]['Date']
+            #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+            #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+            if (num1-num2)!= 0: #to handle the case log10(0) which would result in math error 
+                diff = round(abs(num1-num2), -int(floor(log10(abs(num1-num2)))))
+            else:
+                diff = abs(num1-num2)
+            if (x == "Low"):
+                if (diff <= spread_price*spread_vector):
+                    if  (volume1 > volume2): 
+                        buy_price = min(num1,num2) #this will return the latest lowest prices num1, num2
+                        double_bottom = "Yes"
+                        #print("double bottom captured, info as below: ")
+                        #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                        #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
                     else:
-                        single_top(obj, indexes)
+                        buy_price = min(num1,num2)
+                        double_bottom = "Pattern not found, trough but without volume"
+                else: #this should be short term: within 3months (should deal with this later!!!)
+                    single_bottom(obj, indexes)
+            else: # (x == "High")
+                if (diff <= spread_price*spread_vector):
+                    if  (volume1 > volume2): 
+                        sell_price = max(num1,num2)
+                        double_top = "Yes"
+                        #print("double top captured, info as below: ")
+                        #print("i: ", num1, " i's volume: ", volume1, "date: ", date1)
+                        #print("j: ", num2, 'i volume: ', volume2, "date: ", date2)
+                    else:
+                        sell_price = max(num1,num2)
+                        double_top = "Pattern not found, peak but without volume"
+                else:
+                    single_top(obj, indexes)
 
 def single_top (obj, indexes):
     global sell_price
@@ -425,7 +422,7 @@ future = model.make_future_dataframe(periods=366)
 forecast = model.predict(future)
 print("result: ", model.changepoints)'''
 
-#search_stock("00700")
+#search_stock("00939")
 
 
 def getRSI (num):
