@@ -11,7 +11,7 @@ A chart pattern detection library is used in this project, developed by Marcos D
 
 
 # Data Restructuring
-Since the data retrieved from Quandl includes lots of extra data which does not fit into the chart detection library, the data has to go through a few steps of reconstruction by utilising the Pandas framework.
+Since the data retrieved from Quandl includes lots of extra data which does not fit into the chart detection library, the data has to go through a few steps of reconstruction by utilising the Pandas framework. The data is then packed into a numpy array for pattern detection.
 
 # Success Rate Calculation
 Signal is generated when double top or bottom is formed with a confirmation of certain candlestick patterns. This strategy simulates a long or short position right after the signal is generated. Success rate is then calculated by checking if the price breaks the support level in a 5-days period. 
