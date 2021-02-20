@@ -10,7 +10,7 @@ A double top or double bottom is detected when two consecutive peaks/bottoms of 
 A chart pattern detection library is used in this project, developed by Marcos Duarte, https://github.com/demotu/BMC. The library returns an array of the crest and trough of a wave which in this case is the tops and bottoms of a stock's price.
 
 
-# Data Restructuing
+# Data Restructuring
 Since the data retrieved from Quandl includes lots of extra data which does not fit into the chart detection library, the data has to go through a few steps of reconstruction by utilising the Pandas framework.
 
 # Success Rate Calculation
