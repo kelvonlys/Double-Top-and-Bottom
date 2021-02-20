@@ -7,12 +7,16 @@ import matplotlib.pyplot as plt
 import random
 import django
 import datetime
+import matplotlib.cm as cm
+import numpy as np
     
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.dates import DateFormatter
 
+
 #setup for debug
+# interactive chart  -- > https://plot.ly/python/line-charts/
 import logging
 logging.basicConfig(level=logging.INFO)
 
