@@ -19,3 +19,4 @@ Signal is generated when double top or bottom is formed with a confirmation of c
 # Result and Visualization
 Finally the result is plotted out by using Matplotlib and the success rate is displayed. The crosses are points where double tops and bottoms occur.
 
+![alt text](https://github.com/kelvonlys/Double-Top-and-Bottom/blob/master/Result.png)
